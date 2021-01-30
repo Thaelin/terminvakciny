@@ -44,7 +44,7 @@ export default class DatesCard extends React.Component {
                                     }
                                     return (
                                         <ListItem key={this.props.placeDates.placeId.toString() + i.toString()} style={parseInt(date.free_capacity) <= 0 ? {color: 'red'} : {color: 'green'}}>
-                                            {moment(dateToDisplay).format('DD. MM. YYYY') + ' - ' + description} {parseInt(date.free_capacity) > 0 ? <Link target="_blank" href="https://www.old.korona.gov.sk/covid-19-vaccination-form.php">&nbsp;koronagov formulár</Link> : ''}
+                                            {moment(dateToDisplay).format('DD. MM. YYYY') + ' - ' + description} {parseInt(date.free_capacity) > 0 ? <Link target="_blank" href="https://www.old.korona.gov.sk/covid-19-vaccination-form.php">&nbsp;Prejsť na formulár</Link> : ''}
                                         </ListItem>
                                     );
                                 })
