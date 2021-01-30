@@ -18,6 +18,7 @@ export default class DatesCard extends React.Component {
         return (
             <Card variant="outlined">
                 <CardContent>
+                    <Link target="_blank" href={"https://maps.google.com/?q="+this.props.place.latitude+","+this.props.place.longitude}>Otvoriť na mape</Link>
                     <h4>
                         <Tooltip title={this.props.place.city + ' - ' + this.props.place.title}>
                             <LinesEllipsis
