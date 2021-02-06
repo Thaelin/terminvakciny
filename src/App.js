@@ -1,175 +1,186 @@
-import PlacePicker from './PlacePicker';
-import DatesCard from './DatesCard';
 import React from 'react';
 import axios from 'axios';
 import './App.css';
 import 'fontsource-roboto';
+import Accordion from '@material-ui/core/Accordion';
+import AccordionSummary from '@material-ui/core/AccordionSummary';
+import AccordionDetails from '@material-ui/core/AccordionDetails';
+import Typography from '@material-ui/core/Typography';
+import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import Container from '@material-ui/core/Container';
-import Button from '@material-ui/core/Button';
-import CircularProgress from '@material-ui/core/CircularProgress';
-import Grid from '@material-ui/core/Grid';
-import Checkbox from '@material-ui/core/Checkbox';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Tooltip from '@material-ui/core/Tooltip';
-import HelpIcon from '@material-ui/icons/Help';
+import Chip from '@material-ui/core/Chip';
+import TextField from '@material-ui/core/TextField';
+import Link from '@material-ui/core/Link';
+import Alert from '@material-ui/lab/Alert';
+import CalendarTodayIcon from '@material-ui/icons/CalendarToday';
+import PlaceIcon from '@material-ui/icons/Place';
 import moment from 'moment';
+import CircularProgress from '@material-ui/core/CircularProgress';
+import Button from '@material-ui/core/Button';
 
 class App extends React.Component {
-    updatedPlaces = 0;
-    placesToUpdate = 0;
-
     constructor(props) {
       super(props);
-      this.changeSelectedPlaces = this.changeSelectedPlaces.bind(this);
-      this.startSearch = this.startSearch.bind(this);
-      this.changeNotifSetting = this.changeNotifSetting.bind(this);
-      this.search = this.search.bind(this);
+      this.load = this.load.bind(this);
+      this.filterChanged = this.filterChanged.bind(this);
       this.state = {
-          selectedPlaces: [],
-          started: false,
-          updateInterval: undefined,
-          selectedPlaceDates: [],
-          lastUpdate: null,
-          updating: false,
-          notifications: false,
-          lastFreeCapacity: 0
+        cities: [],
+        filter: ''
       };
     }
 
-    changeSelectedPlaces(value) {
-      this.setState({selectedPlaces: value, started: false});
+    componentDidMount() {
+      this.load();
     }
 
-    startSearch() {
-      if (this.state.updateInterval) {
-        clearInterval(this.state.updateInterval);
-        this.setState({updateInterval: undefined});
-      }
-
-      this.search();
-      let interval = setInterval(this.search, 10000);
-
-      this.setState({
-        started: true,
-        updateInterval: interval
-      });
-    }
-
-    search() {
-      let updatedPlaces = 0;
-      let placesToUpdate = this.state.selectedPlaces.length;
-      let free_capacity = 0;
-
-      this.setState({updating: true});
-
-      this.state.selectedPlaces.forEach(place => {
-        axios
-        .post('https://mojeezdravie.nczisk.sk/api/v1/web/validate_drivein_times_vacc', {
-            drivein_id: place.id
-        })
-        .then(res => {
-            let newSelectedPlaceDates = this.state.selectedPlaceDates;
-            let existingPlaceDate = newSelectedPlaceDates.find(item => item.placeId === place.id);
-
-            res.data.payload.forEach(date => {
-              if (parseInt(date.free_capacity) > 0) {
-                free_capacity += parseInt(date.free_capacity);
-              }
-            });
-
-            if (existingPlaceDate) {
-              existingPlaceDate.dates = res.data.payload;
-            } else {
-              newSelectedPlaceDates.push({
-                placeId: place.id,
-                dates: res.data.payload
+    load() {
+      this.setState({dataLoaded: false});
+      axios
+        .get('https://terminvakciny.sk/api/vacc_places.php')
+        .then(cities => {
+          cities = cities.data.map(city => {
+            city.free = 0; 
+            city.data = [];
+            return city;
+          });
+          axios
+            .get('https://terminvakciny.sk/api/actual_data.php')
+            .then(data => {
+              this.setState({lastUpdate: new Date()});
+              data.data.forEach(row => {
+                const city = cities.find(city => city.city === row.city);
+                if (city) {
+                  city.data.push(row);
+                  city.free += row.free_capacity;
+                }
               });
-            }
-            updatedPlaces++;
-            this.setState({selectedPlaceDates: newSelectedPlaceDates});
+              cities.forEach(city => {
+                city.dates = [];
+                city.data.forEach(row => {
+                  let index = city.dates.findIndex(date => { console.log(date.date, row.c_date); return date.date === row.c_date; });
+                  if (index === -1) {
+                    city.dates.push({date: row.c_date, free: row.free_capacity, data: [row]});
+                  } else {
+                    city.dates[index].data.push(row);
+                    city.dates[index].free = city.dates[index].free + row.free_capacity;
+                    console.log(city.dates[index].free, row.free_capacity);
+                  }
+                });
+                city.dates = city.dates.sort((a, b) => {
+                  return ('' + a.date).localeCompare(b.date);
+                });
+                city.data= null;
+                city.dates.forEach(date => {
+                  date.places = [];
+                  date.data.forEach(row => {
+                    let index = date.places.findIndex(place => place.place === row.title);
+                    if (index === -1) {
+                      date.places.push({place: row.title, free: row.free_capacity, latitude: row.latitude, longitude: row.longitude, address: row.street_name + ' ' + row.street_number});
+                    } else {
+                      date.places[index].free += row.free_capacity;
+                    }
+                  });
+                  date.data = null;
+                });
+              });
+              this.setState({cities: cities, dataLoaded: true});
+              console.log(cities);
+            })
+            .catch(error => {
+                console.error(error);
+            });
         })
         .catch(error => {
             console.error(error);
-            placesToUpdate--;
-        })
-        .finally(() => {
-            if (updatedPlaces === placesToUpdate) {
-              this.setState({lastUpdate: moment().format('DD. MM. YYYY HH:mm:ss')});
-              if (this.state.notifications) {
-                if (free_capacity > 0 && free_capacity !== this.state.lastFreeCapacity) {
-                  new Notification("terminvakciny.sk", {body: "Našli sa voľné vakcinačné termíny. Počet voľných termínov je " + free_capacity + "."});
-                } else if (free_capacity === 0 && this.state.lastFreeCapacity > 0) {
-                  new Notification("terminvakciny.sk", {body: "Voľné vakcinačné termíny sa minuli."});
-                }
-                this.setState({lastFreeCapacity: free_capacity});
-              }
-              this.setState({updating: false});
-            }
         });
-      });
+
+      
     }
 
-    changeNotifSetting(event) {
-      if (event.target.checked) {
-        if (!("Notification" in window)) {
-          alert("This browser does not support desktop notification");
-        } else {
-          if (Notification.permission === "granted") {
-            this.setState({
-              notifications: true
-            });
-          } else if (Notification.permission !== "denied") {
-            Notification.requestPermission().then((permission) => {
-              if (permission === "granted") {
-                this.setState({
-                  notifications: true
-                });
-              }
-            });
-          }
-        }
-      } else {
-        this.setState({
-          notifications: false
-        });
-      }
+    filterChanged(event) {
+      this.setState({filter: event.target.value});
     }
 
     render() {
       return (
         <div className="App">
+          <Container maxWidth="lg">
             <h1>Aplikácia pre hľadanie voľných vakcinačných termínov</h1>
-            <Container maxWidth="lg">
-              <PlacePicker selectedPlaces={this.state.selectedPlaces} changeSelectedPlaces={this.changeSelectedPlaces}></PlacePicker>
-            </Container>
-            <br></br>
-            <FormControlLabel style={{marginRight: '0px'}} control={<Checkbox checked={this.state.notifications} onChange={this.changeNotifSetting} name="soundAlarm" />} label="Zapnúť notifikácie pri nájdení voľného miesta"/><Tooltip title="Treba povoliť notifikácie pre stránku v prehliadači. Pre Windows 10 niekedy treba nastaviť: Systém -> Oznámenia a akcie -> Povoliť oznámenia od iných aplikácií alebo odosielateľov"><HelpIcon></HelpIcon></Tooltip>
-            <br></br>
+            <Button variant="contained" color="secondary" onClick={this.load}>
+              Aktualizovať údaje
+            </Button>
+            <p>Posledná aktualizácia prebehla o {<i>{moment(this.state.lastUpdate).format('DD.MM.YYYY HH:mm:ss')}</i>}</p>
+            
               {
-              this.state.started 
-                ? 
-                <div>
-                  <h3>
-                    Vyhľadávam termíny (posledná aktualizácia: {this.state.lastUpdate ? this.state.lastUpdate : 'ešte nebol'})
-                    {this.state.updating && <CircularProgress style={{display: 'inline-block', width: '20px', height: '20px'}}/>}
-                  </h3>
-                  <i>Zoznam voľných termínov sa aktualizuje každých 10 sekúnd</i><br></br>
-                </div>
+                !this.state.dataLoaded ?
+                <div>Načítavam<br></br><CircularProgress color="secondary" /></div>
                 :
-                <Button disabled={this.state.selectedPlaces.length === 0} onClick={this.startSearch} style={{marginBottom: '10px'}} variant="contained" color="primary">
-                Spustiť hľadanie voľných termínov
-                </Button>
-              }
-              { 
-                this.state.started &&
-                <Grid container style={{marginTop: '10px'}}>
+                <div style={{textAlign: 'left'}} >
+                  <TextField id="filter" value={this.state.filter} onChange={this.filterChanged} label="Filtrovať mesto" variant="outlined" />
                   {
-                    this.state.selectedPlaces.map((place, i) => {
-                      return <Grid item xs={12} sm={6} md={4} lg={3}><DatesCard key={place.id.toString() + i.toString()} placeDates={this.state.selectedPlaceDates.find(item => item.placeId === place.id)} place={place}></DatesCard></Grid>;
-                    })
-                  }
-                </Grid>
+                  this.state.cities.filter(city => city.city.includes(this.state.filter)).map((city, index) => {
+                    return (
+                      <Accordion key={index}>
+                        <AccordionSummary
+                          expandIcon={<ExpandMoreIcon />}
+                          aria-controls="panel1a-content"
+                        >
+                          <Typography>{city.city}</Typography>
+                          <Chip label={city.free} variant="outlined" style={city.free > 0 ? {backgroundColor: 'green'} : {backgroundColor: 'red'}}/>
+                        </AccordionSummary>
+                        <AccordionDetails>
+                            {
+                              city.dates.length === 0 &&
+                              <Alert severity="warning">Pre toto mesto sa nenašli žiadne voľné vakcinačné termíny</Alert>
+                            }
+                            {
+                              city.dates.map((date, index) => {
+                                return (
+                                  <Accordion key={index}>
+                                    <AccordionSummary
+                                      expandIcon={<ExpandMoreIcon />}
+                                      aria-controls="panel1b-content"
+                                    >
+                                      <CalendarTodayIcon></CalendarTodayIcon><Typography>{date.date.substring(8, 10) + '.' + date.date.substring(5, 7) + '.' + date.date.substring(0, 4)}</Typography>
+                                      <Chip label={date.free} variant="outlined" style={date.free > 0 ? {backgroundColor: 'green'} : {backgroundColor: 'red'}}/>
+                                    </AccordionSummary>
+                                    <AccordionDetails>
+                                      {
+                                        date.places.map((place, index) => {
+                                          return (
+                                            <Accordion key={index}>
+                                              <AccordionSummary
+                                                expandIcon={<ExpandMoreIcon />}
+                                                aria-controls="panel1c-content"
+                                              >
+                                                <PlaceIcon></PlaceIcon>
+                                                <Typography>{place.place + ', ' + place.address}</Typography>
+                                                <Chip label={place.free} variant="outlined" style={place.free > 0 ? {backgroundColor: 'green'} : {backgroundColor: 'red'}}/>
+                                              </AccordionSummary>
+                                              <AccordionDetails>
+                                                <Link target="_blank" href={"https://maps.google.com/?q="+place.latitude+","+place.longitude}>Otvoriť na mape </Link>
+                                                |
+                                                <Link target="_blank" href={"https://www.old.korona.gov.sk/covid-19-vaccination-form.php"}> Otvoriť Coronagov formulár</Link>
+                                              </AccordionDetails>
+                                            </Accordion>
+                                          )
+                                        })
+                                      }
+                                    </AccordionDetails>
+                                  </Accordion>
+                                )
+                              })
+                            }
+                      </AccordionDetails>
+                    </Accordion>
+                  )
+                })
               }
+                </div>
+                
+              }
+          </Container>
+            
         </div>
       );
     } 

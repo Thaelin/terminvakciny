@@ -36,3 +36,24 @@
     transform: rotate(360deg);
   }
 }
+
+.MuiAccordionSummary-content {
+  margin: 0 !important;
+}
+
+.MuiChip-outlined {
+  color: white !important;
+  margin-left: auto !important;
+}
+
+.MuiOutlinedInput-root {
+  margin-bottom: 10px !important;
+}
+
+.MuiAccordionDetails-root {
+  display: block !important;
+}
+
+.MuiSvgIcon-root {
+  margin-right: 10px !important;
+}
