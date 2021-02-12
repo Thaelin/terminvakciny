@@ -57,13 +57,12 @@ class App extends React.Component {
               cities.forEach(city => {
                 city.dates = [];
                 city.data.forEach(row => {
-                  let index = city.dates.findIndex(date => { console.log(date.date, row.c_date); return date.date === row.c_date; });
+                  let index = city.dates.findIndex(date => { return date.date === row.c_date; });
                   if (index === -1) {
                     city.dates.push({date: row.c_date, free: row.free_capacity, data: [row]});
                   } else {
                     city.dates[index].data.push(row);
                     city.dates[index].free = city.dates[index].free + row.free_capacity;
-                    console.log(city.dates[index].free, row.free_capacity);
                   }
                 });
                 city.dates = city.dates.sort((a, b) => {
@@ -84,7 +83,6 @@ class App extends React.Component {
                 });
               });
               this.setState({cities: cities, dataLoaded: true});
-              console.log(cities);
             })
             .catch(error => {
                 console.error(error);
@@ -112,13 +110,13 @@ class App extends React.Component {
             <p>Posledná aktualizácia prebehla o {<i>{moment(this.state.lastUpdate).format('DD.MM.YYYY HH:mm:ss')}</i>}</p>
             
               {
-                !this.state.dataLoaded ?
+                !this.state.dataLoaded  ?
                 <div>Načítavam<br></br><CircularProgress color="secondary" /></div>
                 :
-                <div style={{textAlign: 'left'}} >
+                <div style={{textAlign: 'left', marginBottom: '20px'}}>
                   <TextField id="filter" value={this.state.filter} onChange={this.filterChanged} label="Filtrovať mesto" variant="outlined" />
                   {
-                  this.state.cities.filter(city => city.city.includes(this.state.filter)).map((city, index) => {
+                  this.state.cities.filter(city => city.city.toLowerCase().includes(this.state.filter.toLowerCase())).map((city, index) => {
                     return (
                       <Accordion key={index}>
                         <AccordionSummary
@@ -126,7 +124,7 @@ class App extends React.Component {
                           aria-controls="panel1a-content"
                         >
                           <Typography>{city.city}</Typography>
-                          <Chip label={city.free} variant="outlined" style={city.free > 0 ? {backgroundColor: 'green'} : {backgroundColor: 'red'}}/>
+                          <Chip label={city.free + (city.free === 0 || city.free > 4 ? ' vakcín' : (city.free === 1 ? ' vakcína' : ' vakcíny'))} variant="outlined" style={city.free > 0 ? (city.free > 3 ? {backgroundColor: 'green'} : {backgroundColor: 'orange'}) : {backgroundColor: 'red'}}/>
                         </AccordionSummary>
                         <AccordionDetails>
                             {
@@ -142,7 +140,7 @@ class App extends React.Component {
                                       aria-controls="panel1b-content"
                                     >
                                       <CalendarTodayIcon></CalendarTodayIcon><Typography>{date.date.substring(8, 10) + '.' + date.date.substring(5, 7) + '.' + date.date.substring(0, 4)}</Typography>
-                                      <Chip label={date.free} variant="outlined" style={date.free > 0 ? {backgroundColor: 'green'} : {backgroundColor: 'red'}}/>
+                                      <Chip label={date.free + (date.free === 0 || date.free > 4 ? ' vakcín' : (date.free === 1 ? ' vakcína' : ' vakcíny'))} variant="outlined" style={date.free > 0 ? (date.free > 3 ? {backgroundColor: 'green'} : {backgroundColor: 'orange'}) : {backgroundColor: 'red'}}/>
                                     </AccordionSummary>
                                     <AccordionDetails>
                                       {
@@ -155,12 +153,12 @@ class App extends React.Component {
                                               >
                                                 <PlaceIcon></PlaceIcon>
                                                 <Typography>{place.place + ', ' + place.address}</Typography>
-                                                <Chip label={place.free} variant="outlined" style={place.free > 0 ? {backgroundColor: 'green'} : {backgroundColor: 'red'}}/>
+                                                <Chip label={place.free + (place.free === 0 || place.free > 4 ? ' vakcín' : (place.free === 1 ? ' vakcína' : ' vakcíny'))} variant="outlined" style={place.free > 0 ? (place.free > 3 ? {backgroundColor: 'green'} : {backgroundColor: 'orange'}) : {backgroundColor: 'red'}}/>
                                               </AccordionSummary>
                                               <AccordionDetails>
-                                                <Link target="_blank" href={"https://maps.google.com/?q="+place.latitude+","+place.longitude}>Otvoriť na mape </Link>
-                                                |
-                                                <Link target="_blank" href={"https://www.old.korona.gov.sk/covid-19-vaccination-form.php"}> Otvoriť Coronagov formulár</Link>
+                                                <Link target="_blank" href={"https://maps.google.com/?q="+place.latitude+","+place.longitude}>Otvoriť na mape</Link>
+                                                &nbsp;|&nbsp;
+                                                <Link target="_blank" href={"https://www.old.korona.gov.sk/covid-19-vaccination-form.php"}>Otvoriť Coronagov formulár</Link>
                                               </AccordionDetails>
                                             </Accordion>
                                           )
